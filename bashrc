@@ -20,7 +20,7 @@ HISTSIZE=1000
 HISTFILESIZE=2000
 
 # Share history among tmux sessions
-function share_history() {
+share_history() {
   history -a
   history -c
   history -r
@@ -83,7 +83,11 @@ esac
 
 # enable color support of ls and also add handy aliases
 if [ -x /usr/bin/dircolors ]; then
-    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
+    if [[ -r ~/.dircolors ]] ;then
+      eval "$(dircolors -b ~/.dircolors)"
+    else
+      eval "$(dircolors -b)"
+    fi
     alias ls='ls --color=auto'
     #alias dir='dir --color=auto'
     #alias vdir='vdir --color=auto'
@@ -129,3 +133,58 @@ if ! shopt -oq posix; then
     . /etc/bash_completion
   fi
 fi
+
+# Activate venv
+if [[ -f ~/default/bin/activate ]] ; then
+  source ~/default/bin/activate
+fi
+
+export PATH=$PATH:~/bin
+
+# Load node modules
+if ! which node > /dev/null ; then
+  export PATH=/opt/node-v10.13.0/bin:${PATH}
+fi
+
+# Load java command
+if ! which java > /dev/null && [[ -d "/opt/jdk8u265-b01" ]] ; then
+  export PATH=/opt/jdk8u265-b01/bin:${PATH}
+  #export PATH=/opt/jdk-11.0.8+10/bin:${PATH}
+fi
+
+#source <(kubectl completion bash)
+
+if [[ -f /usr/local/bin/nomad ]] ; then
+  complete -C /usr/local/bin/nomad nomad
+fi
+
+export AWS_ASSUME_ROLE_TTL="1h"
+
+eval "$(direnv hook bash)"
+
+if [[ -f /usr/local/bin/terraform ]] ; then
+  complete -C /usr/local/bin/terraform terraform
+fi
+
+. /usr/share/autojump/autojump.sh
+
+if [[ -e ~/lib/oracle-cli/lib/python3.6/site-packages/oci_cli/bin/oci_autocomplete.sh ]] ; then
+  source ~/lib/oracle-cli/lib/python3.6/site-packages/oci_cli/bin/oci_autocomplete.sh
+fi
+
+# See if you can use ${variable//search/replace} instead. [SC2001]
+# Useless cat. Consider 'cmd < file | ..' or 'cmd file | ..' instead. [SC2002]
+export SHELLCHECK_OPTS="-e SC2001 -e SC2002"
+
+export AWS_VAULT_BACKEND=pass
+
+# SSH Agent
+eval `ssh-agent` > /dev/null
+[[ -f ~/.ssh/scm-monitoring.pem ]] && ssh-add -q ~/.ssh/scm-monitoring.pem
+[[ -f ~/.ssh/scm-ci-infra.pem ]] && ssh-add -q ~/.ssh/scm-ci-infra.pem
+[[ -f ~/.ssh/OperationAdmin.pem ]] && ssh-add -q ~/.ssh/OperationAdmin.pem
+[[ -f ~/.ssh/InfraAdministrator.pem ]] && ssh-add -q ~/.ssh/InfraAdministrator.pem
+
+# GPG
+# Ref: https://hackers-high.com/aws/aws-vault-on-linux/#MFA
+export GPG_TTY=$(tty)

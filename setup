@@ -2,41 +2,100 @@
 
 set -ex
 
-# Install some applications
-sudo apt-get update
-sudo apt-get install -y git curl
-sudo apt-get install -y tmux xclip vim-gtk vim-athena
+main() {
+  setup_dotfiles
+  install_tools
+  install_docker
+  install_docker_compose
+  configure_ssh
+  configure_vim
+  configure_ctags
+  configure_gpg
+  make_default_venv
+}
 
-# Setup for Vim
-git clone git://github.com/yoshizo/dotfiles.git ~/dotfiles
+setup_dotfiles() {
+  # Setup for Vim
+  if [[ ! -d ~/dotfiles ]] ; then
+    git clone git://github.com/yoshizo/dotfiles.git ~/dotfiles
+  fi
 
-[[ -e ~/.vimrc ]] && mv ~/.vimrc ~/.vimrc.bak
-[[ -e ~/.tmux.conf ]] && mv ~/.tmux.conf ~/.tmux.conf.bak
-[[ -e ~/.gitconfig ]] && mv ~/.gitconfig ~/.gitconfig.bak
-[[ -e ~/.bashrc ]] && mv ~/.bashrc ~/.bashrc.bak
+  [[ -e ~/.vimrc ]] && mv ~/.vimrc ~/.vimrc.bak
+  [[ -e ~/.tmux.conf ]] && mv ~/.tmux.conf ~/.tmux.conf.bak
+  [[ -e ~/.gitconfig ]] && mv ~/.gitconfig ~/.gitconfig.bak
+  [[ -e ~/.bashrc ]] && mv ~/.bashrc ~/.bashrc.bak
 
-ln -s ~/dotfiles/vimrc ~/.vimrc
-ln -s ~/dotfiles/tmux.conf ~/.tmux.conf
-ln -s ~/dotfiles/gitconfig ~/.gitconfig
-ln -s ~/dotfiles/bashrc ~/.bashrc
+  ln -s ~/dotfiles/vimrc ~/.vimrc
+  ln -s ~/dotfiles/tmux.conf ~/.tmux.conf
+  ln -s ~/dotfiles/gitconfig ~/.gitconfig
+  ln -s ~/dotfiles/bashrc ~/.bashrc
+}
 
-# Setup directory
-mkdir -p ~/.vim/autoload ~/.vim/bundle ~/.vim/colors ~/.vim/backup
+install_tools() {
+  sudo apt-get update
+  sudo apt-get install -y git curl jq
+  sudo apt-get install -y tmux direnv autojump mutt sendmail xclip vim-gtk vim-athena ctags shellcheck pass
+}
 
-# Install pathogen
-# Reference: https://github.com/tpope/vim-pathogen
-curl -fLSso ~/.vim/autoload/pathogen.vim https://tpo.pe/pathogen.vim
+install_docker() {
+  curl -sSL https://get.docker.com/ | sudo sh
+  sudo gpasswd -a "$(id -n -u)" docker
+}
 
-# Install color scheme
-curl -fLSso ~/.vim/colors/jellybeans.vim https://raw.githubusercontent.com/nanotech/jellybeans.vim/master/colors/jellybeans.vim 
+install_docker_compose() {
+  sudo curl -L "https://github.com/docker/compose/releases/download/1.25.5/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+  sudo chmod +x /usr/local/bin/docker-compose
+}
 
-# Install plugins
-cd ~/.vim/bundle
-git clone https://github.com/mattn/emmet-vim.git
-git clone https://github.com/Shougo/neomru.vim
-git clone https://github.com/Shougo/unite.vim.git
-git clone https://github.com/Shougo/vimshell.vim.git
-git clone https://github.com/tpope/vim-abolish.git
-git clone https://github.com/tpope/vim-fugitive
-git clone https://github.com/tpope/vim-surround.git
-git clone https://github.com/fatih/vim-go.git
+configure_ssh() {
+  sudo sed -i "s/.*\(ClientAliveInterval\)=.*/\1=120/" /etc/ssh/sshd_config
+  sudo sed -i "s/.*\(ClientAliveCountMax\)=.*/\1=3/" /etc/ssh/sshd_config
+  sudo systemctl reload sshd
+}
+
+configure_vim() {
+  # Setup directory
+  mkdir -p ~/.vim/autoload ~/.vim/colors ~/.vim/backup
+
+  # Install color scheme
+  curl -fLSso ~/.vim/colors/jellybeans.vim https://raw.githubusercontent.com/nanotech/jellybeans.vim/master/colors/jellybeans.vim
+}
+
+configure_ctags() {
+  # Configure for ctags
+  # Ref: https://tbaggery.com/2011/08/08/effortless-ctags-with-git.html
+  mkdir -p ~/.git_template/hooks
+  cat << 'EOS' > ~/.git_template/hooks/ctags
+#!/bin/sh
+set -e
+PATH="/usr/local/bin:$PATH"
+trap 'rm -f "$$.tags"' EXIT
+git ls-files | \
+    ctags --tag-relative -L - -f"$$.tags" --languages=-javascript,sql
+mv "$$.tags" "tags"
+EOS
+  mkdir -p ~/.git_template/hooks
+  cat << 'EOS' | tee ~/.git_template/hooks/post-commit ~/.git_template/hooks/post-merge ~/.git_template/hooks/post-checkout
+#!/bin/sh
+.git/hooks/ctags >/dev/null 2>&1 &
+EOS
+  cat << 'EOS' > ~/.git_template/hooks/post-rewrite
+#!/bin/sh
+case "$1" in
+  rebase) exec .git/hooks/post-merge ;;
+esac
+EOS
+  chmod +x ~/.git_template/hooks/*
+}
+
+configure_gpg() {
+  echo "default-cache-ttl 10800" >> ~/.gnupg/gpg-agent.conf
+  chmod 600 ~/.gnupg/gpg-agent.conf
+  gpg-connect-agent reloadagent /bye
+}
+
+make_default_venv() {
+  python3 -m venv ~/default
+}
+
+main
