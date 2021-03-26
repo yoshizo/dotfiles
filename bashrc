@@ -180,10 +180,6 @@ export AWS_VAULT_BACKEND=pass
 
 # SSH Agent
 eval `ssh-agent` > /dev/null
-[[ -f ~/.ssh/scm-monitoring.pem ]] && ssh-add -q ~/.ssh/scm-monitoring.pem
-[[ -f ~/.ssh/scm-ci-infra.pem ]] && ssh-add -q ~/.ssh/scm-ci-infra.pem
-[[ -f ~/.ssh/OperationAdmin.pem ]] && ssh-add -q ~/.ssh/OperationAdmin.pem
-[[ -f ~/.ssh/InfraAdministrator.pem ]] && ssh-add -q ~/.ssh/InfraAdministrator.pem
 
 # GPG
 # Ref: https://hackers-high.com/aws/aws-vault-on-linux/#MFA
